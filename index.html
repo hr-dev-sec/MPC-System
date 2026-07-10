@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#020617">
+
+<title>MPCS - Manpower Control System</title>
+<link rel="icon" type="image/png" href="https://upload.wikimedia.org/wikipedia/commons/0/01/Ajinomoto_Group_Global_Brand_logo.png">
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #020617; /* samain dengan background Login/Index biar transisi mulus */
+    font-family: 'Segoe UI', Arial, sans-serif;
+  }
+
+  iframe {
+    border: none;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    background: #020617;
+  }
+
+  /* =====================================================
+     LOADING SCREEN
+     Ditampilkan selagi iframe (Apps Script) masih loading,
+     supaya user tidak lihat layar putih kosong dulu.
+  ===================================================== */
+  #loader {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: #020617;
+    z-index: 999;
+    transition: opacity .4s ease;
+  }
+
+  #loader img {
+    width: 110px;
+    animation: pulseLogo 1.8s ease-in-out infinite;
+  }
+
+  #loader .text {
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .5px;
+  }
+
+  #loader .ring {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.08);
+    border-top: 3px solid #60a5fa;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes pulseLogo {
+    0%, 100% { transform: scale(1); opacity: .9; }
+    50%      { transform: scale(1.06); opacity: 1; }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  #loader.hide {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* =====================================================
+     ERROR STATE
+     Muncul kalau iframe gagal load (misal deployment URL
+     salah / belum di-redeploy / lagi ada masalah jaringan).
+  ===================================================== */
+  #errorBox {
+    position: fixed;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: #020617;
+    color: #f8fafc;
+    text-align: center;
+    padding: 24px;
+    z-index: 998;
+  }
+
+  #errorBox img { width: 80px; opacity: .9; }
+  #errorBox h2  { margin: 0; font-size: 18px; }
+  #errorBox p   { margin: 0; font-size: 13px; color: #94a3b8; max-width: 420px; line-height: 1.6; }
+
+  #errorBox button {
+    margin-top: 8px;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg,#2563eb,#06b6d4);
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loader">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/0/01/Ajinomoto_Group_Global_Brand_logo.png" alt="Ajinomoto">
+  <div class="ring"></div>
+  <div class="text">LOADING MANPOWER CONTROL SYSTEM…</div>
+</div>
+
+<!-- ERROR STATE -->
+<div id="errorBox">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/0/01/Ajinomoto_Group_Global_Brand_logo.png" alt="Ajinomoto">
+  <h2>Gagal memuat sistem</h2>
+  <p>Sistem tidak dapat dimuat. Silakan periksa koneksi internet Anda, atau coba muat ulang halaman. Jika masalah berlanjut, hubungi Administrator HR.</p>
+  <button onclick="location.reload()">Muat Ulang</button>
+</div>
+
+<!-- MAIN APP -->
+<iframe
+  id="mpcsFrame"
+  src="https://script.google.com/macros/s/AKfycbyNj89lslN5RN1RxZGv1KVwSfyQ2jf9m3c0Y9SeiUDOi2vi6FxLMovMGk-6afin71s1/exec"
+  title="Manpower Control System"
+  allow="clipboard-write"
+></iframe>
+
+<script>
+  const loader   = document.getElementById('loader');
+  const errorBox = document.getElementById('errorBox');
+  const frame    = document.getElementById('mpcsFrame');
+
+  let loaded = false;
+  let fallbackTimer = null;
+
+  function showLoader(){
+    errorBox.style.display = 'none';
+    loader.style.display = 'flex';
+    // paksa reflow biar transition opacity jalan lagi walau sebelumnya 'hide'
+    void loader.offsetWidth;
+    loader.classList.remove('hide');
+  }
+
+  function hideLoader(){
+    loader.classList.add('hide');
+    setTimeout(() => {
+      // hanya benar-benar disembunyikan kalau tidak ada loading baru masuk
+      if (loader.classList.contains('hide')) {
+        loader.style.display = 'none';
+      }
+    }, 400);
+  }
+
+  function armFallbackTimeout(){
+    clearTimeout(fallbackTimer);
+    fallbackTimer = setTimeout(() => {
+      if (loader.style.display !== 'none') {
+        loader.style.display = 'none';
+        errorBox.style.display = 'flex';
+      }
+    }, 15000);
+  }
+
+  // Load pertama kali
+  armFallbackTimeout();
+
+  frame.addEventListener('load', () => {
+    loaded = true;
+    clearTimeout(fallbackTimer);
+    hideLoader();
+  });
+
+  // 🔑 Sinyal dari dalam iframe (Login/Index/Dashboard) SEBELUM ia redirect,
+  // supaya loader muncul menutupi transisi dan tidak ada flash hitam kosong.
+  window.addEventListener('message', (e) => {
+    if (!e.data || typeof e.data !== 'object') return;
+
+    if (e.data.type === 'MPCS_LOADING') {
+      showLoader();
+      armFallbackTimeout();
+    }
+
+    // opsional: kalau suatu saat kalian tetap butuh wrapper yang navigasi
+    // (misal ganti seluruh app ke deployment/URL lain), wrapper yang urus,
+    // bukan skrip di dalam iframe yang memaksa window.top.
+    if (e.data.type === 'MPCS_NAVIGATE' && e.data.url) {
+      showLoader();
+      armFallbackTimeout();
+      frame.src = e.data.url;
+    }
+  });
+</script>
+
+</body>
+</html>
